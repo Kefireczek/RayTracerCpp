@@ -6,10 +6,28 @@ C:\Users\Patryk\Documents\GitHub\RayTracerCpp\SFML-3.0.0\include\SFML\System\Exc
       C:\Users\Patryk\Documents\GitHub\RayTracerCpp\SFML-3.0.0\include\SFML\System\Exception.hpp(41,23):
       zobacz deklarację „sf::Exception”
   
+C:\Users\Patryk\Documents\GitHub\RayTracerCpp\RayTracerC++.cpp(115,19): warning C4244: "return": konwersja z "double" do "float", możliwa utrata danych
+C:\Users\Patryk\Documents\GitHub\RayTracerCpp\RayTracerC++.cpp(119,17): warning C4244: "inicjowanie": konwersja z "double" do "float", możliwa utrata danych
+C:\Users\Patryk\Documents\GitHub\RayTracerCpp\RayTracerC++.cpp(126,13): warning C4244: "inicjowanie": konwersja z "double" do "float", możliwa utrata danych
+C:\Users\Patryk\Documents\GitHub\RayTracerCpp\RayTracerC++.cpp(212,73): warning C4244: "argument": konwersja z "T" do "uint8_t", możliwa utrata danych
+C:\Users\Patryk\Documents\GitHub\RayTracerCpp\RayTracerC++.cpp(212,73): warning C4244:         with
+C:\Users\Patryk\Documents\GitHub\RayTracerCpp\RayTracerC++.cpp(212,73): warning C4244:         [
+C:\Users\Patryk\Documents\GitHub\RayTracerCpp\RayTracerC++.cpp(212,73): warning C4244:             T=float
+C:\Users\Patryk\Documents\GitHub\RayTracerCpp\RayTracerC++.cpp(212,73): warning C4244:         ]
+C:\Users\Patryk\Documents\GitHub\RayTracerCpp\RayTracerC++.cpp(212,59): warning C4244: "argument": konwersja z "T" do "uint8_t", możliwa utrata danych
+C:\Users\Patryk\Documents\GitHub\RayTracerCpp\RayTracerC++.cpp(212,59): warning C4244:         with
+C:\Users\Patryk\Documents\GitHub\RayTracerCpp\RayTracerC++.cpp(212,59): warning C4244:         [
+C:\Users\Patryk\Documents\GitHub\RayTracerCpp\RayTracerC++.cpp(212,59): warning C4244:             T=float
+C:\Users\Patryk\Documents\GitHub\RayTracerCpp\RayTracerC++.cpp(212,59): warning C4244:         ]
+C:\Users\Patryk\Documents\GitHub\RayTracerCpp\RayTracerC++.cpp(212,45): warning C4244: "argument": konwersja z "T" do "uint8_t", możliwa utrata danych
+C:\Users\Patryk\Documents\GitHub\RayTracerCpp\RayTracerC++.cpp(212,45): warning C4244:         with
+C:\Users\Patryk\Documents\GitHub\RayTracerCpp\RayTracerC++.cpp(212,45): warning C4244:         [
+C:\Users\Patryk\Documents\GitHub\RayTracerCpp\RayTracerC++.cpp(212,45): warning C4244:             T=float
+C:\Users\Patryk\Documents\GitHub\RayTracerCpp\RayTracerC++.cpp(212,45): warning C4244:         ]
   Trwa generowanie kodu
-  17 of 98 functions (17.3%) were compiled, the rest were copied from previous compilation.
+  1 of 168 functions ( 0.6%) were compiled, the rest were copied from previous compilation.
     0 functions were new in current compilation
-    0 functions had inline decision re-evaluated but remain unchanged
+    1 functions had inline decision re-evaluated but remain unchanged
   Zakończono generowanie kodu
   RayTracerC++.vcxproj -> C:\Users\Patryk\Documents\GitHub\RayTracerCpp\x64\Release\RayTracerC++.exe
   'pwsh.exe' is not recognized as an internal or external command,
