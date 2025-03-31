@@ -5,9 +5,12 @@
 #include <vector>
 #include <iostream>
 
-const int WIDTH = 1000;
-const int HEIGHT = 500;
-const int MAX_BOUNCE_COUNT = 30;
+const int WIDTH = 800;
+const int HEIGHT = 800;
+const int MAX_BOUNCE_COUNT = 4;
+const int NUM_RAYS_PER_PIXEL = 8;
+
+std::vector<glm::vec3> accumulationBuffer(WIDTH * HEIGHT, glm::vec3(0.0f));
 
 struct Ray {
     glm::vec3 origin;
@@ -15,22 +18,32 @@ struct Ray {
 };
 
 struct Material {
-    glm::vec3 color;
-    float emissionStenght = 0;
+    glm::vec3 albedo;
+    float specular = 0;
+    float emissionStength = 0;
     glm::vec3 emissionColor = glm::vec3();
 
     Material(sf::Color c) {
-        color = { c.r, c.g, c.b };
+        albedo = { c.r, c.g, c.b };
     }
 
     Material() {
-        color = glm::vec3();
+        albedo = glm::vec3();
+    }
+
+    Material(glm::vec3 c) {
+        albedo = c;
     }
 
     Material(glm::vec3 c, float eS, glm::vec3 eC) {
-        color = c;
+        albedo = c;
         emissionColor = eC;
-        emissionStenght = eS;
+        emissionStength = eS;
+    }
+
+    Material(glm::vec3 c, float s) {
+        albedo = c;
+        specular = s;
     }
 };
 
@@ -73,6 +86,7 @@ HitInfo rayIntersectsSphere(const Ray& ray, const Sphere& sphere) {
             hitInfo.dist = t0;
             hitInfo.hitPoint = ray.origin + ray.direction * t0;
             hitInfo.normal = glm::normalize(hitInfo.hitPoint - sphere.center);
+            hitInfo.material = sphere.material;
         }
     }
 
@@ -101,6 +115,8 @@ HitInfo rayIntersectsPlane(const Ray& ray, const Plane& plane) {
 
             // Ustawiamy normalną (zwróć uwagę, że normalna może być odwrócona)
             hitInfo.normal = denom < 0 ? plane.normal : -plane.normal;
+
+            hitInfo.material = plane.material;
         }
     }
 
@@ -130,108 +146,98 @@ glm::vec3 RandomUnitVectorCosineWeighted(uint32_t& state) {
     return glm::vec3(x, y, z);
 }
 
-void GeneratePixel(int x, int y, sf::Image& image);
+glm::vec3 GetPixelColor(int x, int y, sf::Image& image, uint32_t seed);
 glm::vec3 TraceRay(Ray ray, uint32_t& rngState);
 HitInfo CheckRayIntersections(const Ray& ray);
 
 std::vector<Sphere> spheres = {
-    {{0, 0, 5}, 1.0f, Material(sf::Color::Red)},
-    {{1, 1, 6}, 1.0f, Material(sf::Color::Green)},
-    {{-2, 0, 7}, 1.0f, Material(sf::Color::Blue)},
-    {{ 0, 5, 5}, 3.0f, Material(glm::vec3(), 1.0f, glm::vec3{255, 255, 255})}
+    {{0, 0, 5}, 1.0f, Material(glm::vec3(1, 0.75, 0.82), 1)},
+    {{1, 1, 6}, 1.0f, Material(glm::vec3(0.75, 1, 0.80))},
+    {{-2, 0, 7}, 1.0f, Material(glm::vec3(0.70, 0.80, 1))},
+    {{-2, 0, 7}, 1.0f, Material(glm::vec3(0.70, 0.80, 1), 0.75)},
+    {{3, 0, 3}, 1.0f, Material(glm::vec3(0.70, 0.40, 0.7), 0.5)},
+    {{-2, 2, 4}, 1.0f, Material(glm::vec3(1, 0.80, 0.5), 0.25)},
+    {{0, -15, 10}, 15.0f, Material(glm::vec3{1, 1, 1})},
+    {{ 5, 2, 5}, 3.0f, Material(glm::vec3(), 2.0f, glm::vec3{1, 1, 1})},
+    { { -3, 2, 10 }, 3.0f, Material(glm::vec3(), 2.0f, glm::vec3{1, 1, 1}) }
 };
 
 std::vector<Plane> planes = {
-{{0, -2, 0}, {0, 1, 0}, Material({150, 150, 150})},  // Podłoga
-{{0, 0, 10}, {0, 0, -1}, Material({200, 200, 200})}  // Tło
+    //{{0, -2, 0}, {0, 1, 0}, Material(glm::vec3{0.6, 0.6, 0.6})},  // Podłoga
+    //{{0, 0, 10}, {0, 0, 1}, Material(glm::vec3{0.8, 0.8, 0.8})}  // Tło
 };
 
-int main() {
-    sf::RenderWindow window(sf::VideoMode({ WIDTH, HEIGHT }), "Ray Tracer");
-    sf::Image image({ WIDTH, HEIGHT }, sf::Color::Black);
-    sf::Texture texture;
 
-    for (int x = 0; x < WIDTH; x++) {
-        for (int y = 0; y < HEIGHT; y++) {
-
-            GeneratePixel(x, y, image);
-        }
-    }
-
-
-    if (!texture.loadFromImage(image)) {
-        return 1;
-    }
-    sf::Sprite sprite(texture);
-
-
-    while (window.isOpen()) {
-        while (const std::optional event = window.pollEvent())
-        {
-            // Close window: exit
-            if (event->is<sf::Event::Closed>())
-                window.close();
-        }
-
-        window.clear();
-        window.draw(sprite);
-        window.display();
-    }
-
-    return 0;
-}
-
-
-
-void GeneratePixel(int x, int y, sf::Image& image)
+glm::vec3 GetPixelColor(int x, int y, sf::Image& image, uint32_t seed)
 {
-    sf::Vector2u pos(x, y);
+    glm::vec2 pos(x, y);
 
-    //Random Seed for pixel
-    uint32_t seed = pos.x * WIDTH + pos.y * HEIGHT;
+    float aspectRatio = (float)WIDTH / HEIGHT;
+
+    glm::vec2 jitter = glm::vec2(RandomValue01(seed), RandomValue01(seed)) - 0.5f;
+    pos += jitter;
 
 
-    float aspectRatio = WIDTH / HEIGHT;
-    
     // Normalizacja współrzędnych ekranu
-    sf::Vector2f uv(
+    glm::vec2 uv(
         ((float)pos.x / WIDTH) * 2 - 1,
         -((float)pos.y / HEIGHT) * 2 + 1
     );
 
     Ray ray;
     ray.origin = { 0,0,0 };
+
+
+
     ray.direction = glm::normalize(glm::vec3(uv.x, uv.y / aspectRatio, 1.0f) - ray.origin);
 
-    glm::vec3 pixelColor = TraceRay(ray, seed);
-    //std::cout << pixelColor.x << ", " << pixelColor.y << ", " << pixelColor.z << ", " << std::endl;
-    float closestDistance = std::numeric_limits<float>::max();
+    //ray.direction = glm::normalize(glm::vec3(uv.x, uv.y / aspectRatio, 1.0f) - ray.origin);
 
+    glm::vec3 totalIncomingLight = glm::vec3(0);
 
+    for (int i = 0; i < NUM_RAYS_PER_PIXEL; i++)
+    {
+        totalIncomingLight += TraceRay(ray, seed);
+    }
 
-    image.setPixel(pos, sf::Color(pixelColor.x, pixelColor.y, pixelColor.z));
+    totalIncomingLight /= NUM_RAYS_PER_PIXEL;
+
+    return totalIncomingLight;
 }
 
 glm::vec3 TraceRay(Ray ray, uint32_t& rngState) {
-    glm::vec3 rayColor = glm::vec3(1);
-    glm::vec3 incomingLight = glm::vec3(0);
+    glm::vec3 rayColor = glm::vec3(1.0f);
+    glm::vec3 incomingLight = glm::vec3(0.0f);
 
     for (int i = 0; i < MAX_BOUNCE_COUNT; i++)
     {
         HitInfo hit = CheckRayIntersections(ray);
         if (hit.didHit) {
             ray.origin = hit.hitPoint;
-            ray.direction = glm::normalize(hit.normal + RandomUnitVectorCosineWeighted(rngState));
+
+            if (RandomValue01(rngState) > hit.material.specular) {
+                ray.direction = glm::normalize(hit.normal + RandomUnitVectorCosineWeighted(rngState));
+            }
+            else {
+                ray.direction = glm::reflect(ray.direction, hit.normal);
+            }
+            
 
             Material material = hit.material;
-            glm::vec3 emittedLight = material.emissionColor * material.emissionStenght;
+            glm::vec3 emittedLight = material.emissionColor * material.emissionStength;
             incomingLight += emittedLight * rayColor;
-            rayColor *= material.color;
+            rayColor *= material.albedo;
+
+            float p = std::max(rayColor.x, std::max(rayColor.y, rayColor.z));
+            if (RandomValue01(rngState) > p) {
+                break;
+            }
+
+            rayColor *= 1.0f / p;
         }
         else {
             break;
         }
-        
     }
 
     return incomingLight;
@@ -248,7 +254,6 @@ HitInfo CheckRayIntersections(const Ray& ray) {
         if (hit.didHit && hit.dist < closestDistance) {
             closestDistance = hit.dist;
             closestHit = hit;
-            closestHit.material = sphere.material;
         }
     }
 
@@ -258,9 +263,102 @@ HitInfo CheckRayIntersections(const Ray& ray) {
         if (hit.didHit && hit.dist < closestDistance) {
             closestDistance = hit.dist;
             closestHit = hit;
-            closestHit.material = plane.material;
         }
     }
 
     return closestHit;
+}
+
+glm::vec3 ACESToneMapping(const glm::vec3& x) {
+    float a = 2.51f;
+    float b = 0.03f;
+    float c = 2.43f;
+    float d = 0.59f;
+    float e = 0.14f;
+    return glm::clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0f, 1.0f);
+}
+
+glm::vec3 LinearToSRGB(glm::vec3 color) {
+    glm::vec3 higher = glm::pow(color, glm::vec3(1.0f / 2.4f)) * 1.055f - 0.055f;
+    glm::vec3 lower = color * 12.92f;
+
+    glm::vec3 result;
+    result.x = (color.x < 0.0031308f) ? lower.x : higher.x;
+    result.y = (color.y < 0.0031308f) ? lower.y : higher.y;
+    result.z = (color.z < 0.0031308f) ? lower.z : higher.z;
+
+    return result;
+}
+
+sf::Color ConvertColor(const glm::vec3& hdrColor) {
+
+    // 1. Zastosuj tone mapping (np. prosty operator Reinharda)
+    glm::vec3 mapped = ACESToneMapping(hdrColor);
+    //glm::vec3 mapped = hdrColor;
+
+    // 2. Opcjonalnie: korekcja gamma (zakładając gamma 2.2)
+    glm::vec3 gammaCorrected = LinearToSRGB(mapped);
+    //glm::vec3 gammaCorrected = mapped;
+
+    // 3. Skalowanie do zakresu 0-255 i ograniczenie wartości
+    int r = static_cast<int>(gammaCorrected.r * 255.0f);
+    int g = static_cast<int>(gammaCorrected.g * 255.0f);
+    int b = static_cast<int>(gammaCorrected.b * 255.0f);
+
+    return sf::Color(r, g, b);
+}
+
+int main() {
+    sf::RenderWindow window(sf::VideoMode({ WIDTH, HEIGHT }), "Ray Tracer");
+    sf::Image newFrame({ WIDTH, HEIGHT }, sf::Color::Black);
+    sf::Texture texture;
+
+
+    uint32_t iFrame = 0;
+
+    while (window.isOpen()) {
+
+        while (const std::optional event = window.pollEvent())
+        {
+            // Close window: exit
+            if (event->is<sf::Event::Closed>())
+                window.close();
+        }
+
+        for (int x = 0; x < WIDTH; x++) {
+            for (int y = 0; y < HEIGHT; y++) {
+
+                uint32_t rngState = (uint32_t)(uint32_t(x) * uint32_t(1973) + uint32_t(y) * uint32_t(9277) + uint32_t(iFrame) * uint32_t(26699)) | uint32_t(1);
+
+                glm::vec3 newColor = GetPixelColor(x, y, newFrame, rngState);
+
+                sf::Vector2u pos = sf::Vector2u(x, y);
+
+                float weight = 1.0f / (iFrame + 1);
+
+                accumulationBuffer[y * WIDTH + x] = accumulationBuffer[y * WIDTH + x] * (1.0f - weight) + newColor * weight;
+
+                glm::vec3 accColor = accumulationBuffer[y * WIDTH + x];
+                //sf::Color color = sf::Color(std::clamp(accColor.x * 255, 0.0f , 255.0f), std::clamp(accColor.y * 255, 0.0f, 255.0f), std::clamp(accColor.z * 255, 0.0f, 255.0f));
+                //sf::Color color = sf::Color(newColor.x * 255, newColor.y * 255, newColor.z * 255);
+                sf::Color color = ConvertColor(accColor);
+
+                newFrame.setPixel(pos, color);
+            }
+        }
+
+
+        if (!texture.loadFromImage(newFrame)) {
+            return 1;
+        }
+        sf::Sprite sprite(texture);
+
+        window.clear();
+        window.draw(sprite);
+        window.display();
+
+        iFrame++;
+    }
+
+    return 0;
 }
