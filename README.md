@@ -29,4 +29,5 @@ As the program is running on single core on CPU, the perfomance is really limite
 ## Based on
 
 https://blog.demofox.org/2020/05/25/casual-shadertoy-path-tracing-1-basic-camera-diffuse-emissive/
+
 https://www.youtube.com/watch?v=Qz0KTGYJtUk
