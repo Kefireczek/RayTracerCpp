@@ -53,12 +53,6 @@ struct Sphere {
     Material material;
 };
 
-struct Plane {
-    glm::vec3 point;   // Punkt na płaszczyźnie
-    glm::vec3 normal;  // Wektor normalny płaszczyzny (powinien być znormalizowany)
-    Material material;
-};
-
 struct HitInfo
 {
     bool didHit;
@@ -90,37 +84,6 @@ HitInfo rayIntersectsSphere(const Ray& ray, const Sphere& sphere) {
         }
     }
 
-    return hitInfo;
-}
-
-HitInfo rayIntersectsPlane(const Ray& ray, const Plane& plane) {
-    HitInfo hitInfo{};
-
-    // Obliczanie mianownika
-    float denom = glm::dot(plane.normal, ray.direction);
-
-    // Jeśli mianownik jest bliski zeru, promień jest równoległy do płaszczyzny
-    if (std::abs(denom) > 1e-6) {
-        // Obliczanie odległości do punktu przecięcia
-        glm::vec3 p0l0 = plane.point - ray.origin;
-        float t = glm::dot(p0l0, plane.normal) / denom;
-
-        // Sprawdzamy czy przecięcie jest przed promieniem
-        if (t >= 0) {
-            hitInfo.didHit = true;
-            hitInfo.dist = t;
-
-            // Obliczanie punktu kolizji
-            hitInfo.hitPoint = ray.origin + ray.direction * t;
-
-            // Ustawiamy normalną (zwróć uwagę, że normalna może być odwrócona)
-            hitInfo.normal = denom < 0 ? plane.normal : -plane.normal;
-
-            hitInfo.material = plane.material;
-        }
-    }
-
-    // Jeśli odległość jest ujemna, przecięcie jest za promieniem
     return hitInfo;
 }
 
@@ -162,11 +125,6 @@ std::vector<Sphere> spheres = {
     { { -3, 2, 10 }, 3.0f, Material(glm::vec3(), 2.0f, glm::vec3{1, 1, 1}) }
 };
 
-std::vector<Plane> planes = {
-    //{{0, -2, 0}, {0, 1, 0}, Material(glm::vec3{0.6, 0.6, 0.6})},  // Podłoga
-    //{{0, 0, 10}, {0, 0, 1}, Material(glm::vec3{0.8, 0.8, 0.8})}  // Tło
-};
-
 
 glm::vec3 GetPixelColor(int x, int y, sf::Image& image, uint32_t seed)
 {
@@ -177,7 +135,6 @@ glm::vec3 GetPixelColor(int x, int y, sf::Image& image, uint32_t seed)
     glm::vec2 jitter = glm::vec2(RandomValue01(seed), RandomValue01(seed)) - 0.5f;
     pos += jitter;
 
-
     // Normalizacja współrzędnych ekranu
     glm::vec2 uv(
         ((float)pos.x / WIDTH) * 2 - 1,
@@ -187,11 +144,7 @@ glm::vec3 GetPixelColor(int x, int y, sf::Image& image, uint32_t seed)
     Ray ray;
     ray.origin = { 0,0,0 };
 
-
-
     ray.direction = glm::normalize(glm::vec3(uv.x, uv.y / aspectRatio, 1.0f) - ray.origin);
-
-    //ray.direction = glm::normalize(glm::vec3(uv.x, uv.y / aspectRatio, 1.0f) - ray.origin);
 
     glm::vec3 totalIncomingLight = glm::vec3(0);
 
@@ -248,18 +201,8 @@ HitInfo CheckRayIntersections(const Ray& ray) {
     closestHit.didHit = false;
     float closestDistance = std::numeric_limits<float>::max();
 
-    // Sprawdzanie przecięć ze wszystkimi sferami
     for (const auto& sphere : spheres) {
         HitInfo hit = rayIntersectsSphere(ray, sphere);
-        if (hit.didHit && hit.dist < closestDistance) {
-            closestDistance = hit.dist;
-            closestHit = hit;
-        }
-    }
-
-    // Sprawdzanie przecięć ze wszystkimi płaszczyznami
-    for (const auto& plane : planes) {
-        HitInfo hit = rayIntersectsPlane(ray, plane);
         if (hit.didHit && hit.dist < closestDistance) {
             closestDistance = hit.dist;
             closestHit = hit;
@@ -292,15 +235,10 @@ glm::vec3 LinearToSRGB(glm::vec3 color) {
 
 sf::Color ConvertColor(const glm::vec3& hdrColor) {
 
-    // 1. Zastosuj tone mapping (np. prosty operator Reinharda)
     glm::vec3 mapped = ACESToneMapping(hdrColor);
-    //glm::vec3 mapped = hdrColor;
 
-    // 2. Opcjonalnie: korekcja gamma (zakładając gamma 2.2)
     glm::vec3 gammaCorrected = LinearToSRGB(mapped);
-    //glm::vec3 gammaCorrected = mapped;
 
-    // 3. Skalowanie do zakresu 0-255 i ograniczenie wartości
     int r = static_cast<int>(gammaCorrected.r * 255.0f);
     int g = static_cast<int>(gammaCorrected.g * 255.0f);
     int b = static_cast<int>(gammaCorrected.b * 255.0f);
@@ -339,8 +277,6 @@ int main() {
                 accumulationBuffer[y * WIDTH + x] = accumulationBuffer[y * WIDTH + x] * (1.0f - weight) + newColor * weight;
 
                 glm::vec3 accColor = accumulationBuffer[y * WIDTH + x];
-                //sf::Color color = sf::Color(std::clamp(accColor.x * 255, 0.0f , 255.0f), std::clamp(accColor.y * 255, 0.0f, 255.0f), std::clamp(accColor.z * 255, 0.0f, 255.0f));
-                //sf::Color color = sf::Color(newColor.x * 255, newColor.y * 255, newColor.z * 255);
                 sf::Color color = ConvertColor(accColor);
 
                 newFrame.setPixel(pos, color);
