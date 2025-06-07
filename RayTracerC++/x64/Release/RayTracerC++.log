@@ -14,5 +14,3 @@ C:\Users\Patryk\Documents\GitHub\RayTracerCpp\RayTracerC++.cpp(105,13): warning 
   All 182 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
   Zakończono generowanie kodu
   RayTracerC++.vcxproj -> C:\Users\Patryk\Documents\GitHub\RayTracerCpp\x64\Release\RayTracerC++.exe
-  'pwsh.exe' is not recognized as an internal or external command,
-  operable program or batch file.
